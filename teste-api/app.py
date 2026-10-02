@@ -11,48 +11,60 @@
 
 #API-KEY --> minha credencial para utilizar a plataforma
 
-import requests #bibliotecas para fazer requisições HTTP
-from pprint import pprint #biblioteca para imprimir os dados de forma legível
+import os
+from pprint import pprint
+import requests
+from dotenv import load_dotenv
 
-api_key = "813566133ff747e98c1224430262909"
+# Carrega as variáveis do arquivo .env
+load_dotenv()
 
-link_api = "https://api.weatherapi.com/v1/current.json"
+# Obtém a chave do arquivo .env
+api_key = os.getenv("API_KEY")
+
+# Alterado para o endpoint de previsão (forecast)
+link_api = "https://api.weatherapi.com/v1/forecast.json"
 
 variavel_cidade = input("Digite o nome da cidade desejada: ")
-
-hora_desejada = input("Digite o horário desejado: ")
-
+hora_input = input("Digite a hora desejada (0 a 23 ou ex: 14:00): ")
 com_polen = input("Quer pesquisar a qualidade do ar? (sim ou não): ")
 
-aqi_opcao = "sim" if com_polen in ["sim", "s"] else "no"
+# Extrai apenas o número da hora (ex: transforma "14:00" em 14)
+try:
+    hora_int = int(hora_input.split(":")[0].strip())
+except ValueError:
+    hora_int = 12  # Valor padrão caso o usuário digite um formato inválido
+
+# A WeatherAPI espera "yes" ou "no" para o parâmetro aqi
+aqi_opcao = "yes" if com_polen.lower() in ["sim", "s"] else "no"
 
 parametros = {
     "key": api_key,
-    "q": variavel_cidade, #cidade para qual queremos obter os dados
-    "hour": hora_desejada,
+    "q": variavel_cidade,
+    "days": 1,  # Previsão para o dia atual
+    "hour": hora_int,  # Filtra a hora específica (0 a 23)
     "aqi": aqi_opcao,
-    "lang": "de" #Linguagem
+    "lang": "pt",
 }
 
-#Armazenando a resposta da requisição na variável resposta
-
-resposta = requests.get(link_api, params = parametros)
-
-print(resposta, "\n")
-
-print(resposta.content)
+resposta = requests.get(link_api, params=parametros)
 
 if resposta.status_code == 200:
     print("\nRequisição realizada com sucesso.")
-    dados = resposta.json() #armazenando os dados em formato de JSON na variável dados
-    pprint(dados)
-    hora = dados["location"]["localtime"]
+    dados = resposta.json()
+
+    # Acessa os dados retornados para a hora filtrada
+    dados_hora = dados["forecast"]["forecastday"][0]["hour"][0]
+
     cidade = dados["location"]["name"]
-    temperatura = dados["current"]["temp_c"]
-    descricao = dados["current"]["condition"]["text"]
-    pollen = dados["current"]["pollen"]["Ragweed"]
-    print(f"\nA temperatura atual em {cidade}, no horário {hora} é de {temperatura}°C")
-    print(f"Descrição do clima é: {descricao}")
-    print(f"O pólen tá assim: {pollen} grãos/m³")
+    horario_previsto = dados_hora["time"]
+    temperatura = dados_hora["temp_c"]
+    descricao = dados_hora["condition"]["text"]
+
+    print(
+        f"\nA previsão para {cidade} no horário {horario_previsto} é de"
+        f" {temperatura}°C"
+    )
+    print(f"Descrição do clima: {descricao}")
 else:
-    print("\nErro na requisição.")
+    print("\nErro na requisição. Verifique sua chave ou os dados digitados.")
